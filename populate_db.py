@@ -31,6 +31,8 @@ def convertDate(date):
 	return datetime.datetime.strptime(day, '%B %d %Y').strftime('%Y-%m-%d')
 
 # Function to insert vote cast attributes and execute SQL command
+# cursor: mysql connection cursor
+# vote_cast_tup: tuple (list) representing row to be appended to VoteCast relation
 def insertVoteCast(cursor, vote_cast_tup):
 	data_string = "INSERT INTO VoteCast VALUES" + vote_cast_tup
 	try:
@@ -39,6 +41,8 @@ def insertVoteCast(cursor, vote_cast_tup):
 		print("Failed inserting tuple: {}".format(error_descriptor))
 
 # Function to insert vote attributes and execute SQL command
+# cursor: mysql connection cursor
+# vote_tup: tuple (list) representing row to be appended to Votes relation
 def insertVote(cursor, vote_tup):
 	data_string = "INSERT INTO Votes VALUES" + vote_tup
 	try:
@@ -47,6 +51,8 @@ def insertVote(cursor, vote_tup):
 		print("Failed inserting tuple: {}".format(error_descriptor))
 
 # Function to insert senator attributes and execute SQL command
+# cursor: mysql connection cursor
+# senator_tup: tuple (list) representing row to be appended to Senator relation
 def insertSenator(cursor, senator_tup):
 	data_string = "INSERT INTO Senators VALUES" + senator_tup
 	try:
@@ -88,7 +94,7 @@ schema_string_votecast = (
 )
 
 # Connect to MySQL (with appropriate password)
-connection = mysql.connector.connect(user='root', password='r0ckies2', host='localhost')
+connection = mysql.connector.connect(user='root', password='123456', host='localhost')
 cursor = connection.cursor()
 databaseName = "SenatorVotes"
 
@@ -113,7 +119,7 @@ except mysql.connector.Error as error_descriptor:
 	print("Failed using database: {}".format(error_descriptor))
 	exit(1)
 
-# Execute schema strings one at a time
+# Execute Senator schema 
 try:
 	cursor.execute(schema_string_senators, multi=False)
 except mysql.connector.Error as error_descriptor:
@@ -123,6 +129,7 @@ except mysql.connector.Error as error_descriptor:
 		print("Failed creating schema: {}".format(error_descriptor))
 	exit(1)
 
+# Execute Votes schema 
 try:
 	cursor.execute(schema_string_votes, multi=False)
 except mysql.connector.Error as error_descriptor:
@@ -132,6 +139,7 @@ except mysql.connector.Error as error_descriptor:
 		print("Failed creating schema: {}".format(error_descriptor))
 	exit(1)
 
+# Execute VoteCast schema 
 try:
 	cursor.execute(schema_string_votecast, multi=False)
 except mysql.connector.Error as error_descriptor:
@@ -141,21 +149,20 @@ except mysql.connector.Error as error_descriptor:
 		print("Failed creating schema: {}".format(error_descriptor))
 	exit(1)
 
+# Committing and closing connections, get new cursor
 connection.commit()
 cursor.close()
 cursor = connection.cursor()
 
 # After running the contents of 'Schema.sql', you have to do again
 # a USE SenatorVotes in your connection before adding the tuples.
-
 try:
 	cursor.execute("USE {}".format(databaseName))
 except mysql.connector.Error as error_descriptor:
 	print("Failed using database: {}".format(error_descriptor))
 	exit(1)
 
-
-# Define list of unique senators
+# Define a list of senators
 senators = []
 
 # Parse files
@@ -169,19 +176,21 @@ for filename in glob.glob("XML/*.xml"):
 	year = tree.xpath("congress_year")[0].text
 	date = tree.xpath("vote_date")[0].text
 
+	# Construct tuple as a list to be inserted
 	vote_tup = "(" + cong_num + "," + cong_session + "," + vote_num + "," + year + ",'" + convertDate(date) + "')"
 	insertVote(cursor, vote_tup)
 
 	# Find all members
 	members = tree.xpath("//member")
 
+	# For each senator who voted on this vote
 	for member in members:
-
+		# Get senator ID
 		lis_member_id = member.xpath("lis_member_id")[0].text
 
-		# Identify a senator
+		# Only append to senators if not already present, each senator should be distinct
 		if lis_member_id not in senators:
-			# Adding new senators to 
+			# Adding current senator to senators
 			senators.append(lis_member_id)
 
 			# Parse attributes of senator
@@ -191,6 +200,7 @@ for filename in glob.glob("XML/*.xml"):
 			state = member.xpath("state")[0].text
 			vote_cast = member.xpath("vote_cast")[0].text
 
+			# Construct tuple as a list to be inserted
 			senator_tup = "('" + lis_member_id + "','" + first_name + "','" + last_name + "','" + party + "','" + state + "')"
 			insertSenator(cursor, senator_tup)
 
@@ -206,6 +216,11 @@ connection.close()
 
 # 4. Missing Votes
 # 
+# It is possible that the data is getting lost due to a replication issue, such as sql removing the redundant
+# VoteCast tuples if they happened to exist (and for some reason wasn't showing an error message). 
 # We first confirmed that we only have 35,698 votes by running the SQL command 'SELECT COUNT(*) FROM VoteCast;'
-# Therefore, 
-
+# This initial result told us that the issue must be occurring before getting inserted into the sql tables, and not 
+# an issue with redundant tuples or sql. Furthermore, our nested loop that iterates through each vote cast for
+# each vote_num is also executed 31798 times, which implies that either the raw data is missing the 2 votes, or
+# the lxml.etree.parse function is not recognizing some  member tag even if they may exist in the data, due to
+# formatting or misspelling.
