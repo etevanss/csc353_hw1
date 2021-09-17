@@ -149,7 +149,7 @@ except mysql.connector.Error as error_descriptor:
 		print("Failed creating schema: {}".format(error_descriptor))
 	exit(1)
 
-# Commit & close connection, get new cursor
+# Committing and closing connections, get new cursor
 connection.commit()
 cursor.close()
 cursor = connection.cursor()
@@ -161,7 +161,6 @@ try:
 except mysql.connector.Error as error_descriptor:
 	print("Failed using database: {}".format(error_descriptor))
 	exit(1)
-
 
 # Define a list of senators
 senators = []
@@ -218,5 +217,9 @@ connection.close()
 # 4. Missing Votes
 # 
 # We first confirmed that we only have 35,698 votes by running the SQL command 'SELECT COUNT(*) FROM VoteCast;'
-# Therefore, 
-
+# It is possible that the data is getting lost due to a replication issue, such as sql removing the redundant
+# VoteCast tuples if they happened to exist, and for some reason wasn't showing an error message. However, our 
+# nested loop that iterates through each vote cast for each vote_num is executed 31798 times, which implies 
+# that either the raw data is missing the 2 votes, or the lxml.etree.parse function is not recognizing some 
+# member tag even if they may exist in the data, possibly due to formatting or misspelling.
+# 
