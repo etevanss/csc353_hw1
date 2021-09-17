@@ -216,10 +216,11 @@ connection.close()
 
 # 4. Missing Votes
 # 
-# We first confirmed that we only have 35,698 votes by running the SQL command 'SELECT COUNT(*) FROM VoteCast;'
 # It is possible that the data is getting lost due to a replication issue, such as sql removing the redundant
-# VoteCast tuples if they happened to exist, and for some reason wasn't showing an error message. However, our 
-# nested loop that iterates through each vote cast for each vote_num is executed 31798 times, which implies 
-# that either the raw data is missing the 2 votes, or the lxml.etree.parse function is not recognizing some 
-# member tag even if they may exist in the data, possibly due to formatting or misspelling.
-# 
+# VoteCast tuples if they happened to exist (and for some reason wasn't showing an error message). 
+# We first confirmed that we only have 35,698 votes by running the SQL command 'SELECT COUNT(*) FROM VoteCast;'
+# This initial result told us that the issue must be occurring before getting inserted into the sql tables, and not 
+# an issue with redundant tuples or sql. Furthermore, our nested loop that iterates through each vote cast for
+# each vote_num is also executed 31798 times, which implies that either the raw data is missing the 2 votes, or
+# the lxml.etree.parse function is not recognizing some  member tag even if they may exist in the data, due to
+# formatting or misspelling.
